@@ -2,9 +2,9 @@ package main
 
 import (
 	"bytes"
+	_ "embed"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -12,11 +12,12 @@ import (
 
 	"google.golang.org/protobuf/types/pluginpb"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
-	"github.com/markbates/pkger"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"golang.org/x/tools/imports"
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/proto"
 )
 
 func main() {
@@ -25,7 +26,11 @@ func main() {
 
 	// Protoc passes pluginpb.CodeGeneratorRequest in via stdin
 	// marshalled with Protobuf
-	input, _ := ioutil.ReadAll(os.Stdin)
+	log.Printf("GENERATOR: reading stdin")
+	input, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		log.Fatalf("error reading stdin: %v", err)
+	}
 	var request pluginpb.CodeGeneratorRequest
 	if err := proto.Unmarshal(input, &request); err != nil {
 		log.Fatalf("error unmarshalling [%s]: %v", string(input), err)
@@ -52,7 +57,7 @@ func main() {
 	}
 
 	buf := new(bytes.Buffer)
-	err = generateServer(protos, &Options{
+	err = generateServer(protos, Options{
 		writer:    buf,
 		adminPort: params["admin-port"],
 		grpcAddr:  fmt.Sprintf("%s:%s", params["grpc-address"], params["grpc-port"]),
@@ -112,26 +117,12 @@ type Options struct {
 	grpcAddr  string
 	adminPort string
 	pbPath    string
-	format    bool
 }
 
+//go:embed server.tmpl
 var SERVER_TEMPLATE string
 
-func init() {
-	f, err := pkger.Open("/server.tmpl")
-	if err != nil {
-		log.Fatalf("error opening server.tmpl: %s", err)
-	}
-
-	bytes, err := ioutil.ReadAll(f)
-	if err != nil {
-		log.Fatalf("error reading server.tmpl: %s", err)
-	}
-
-	SERVER_TEMPLATE = string(bytes)
-}
-
-func generateServer(protos []*descriptor.FileDescriptorProto, opt *Options) error {
+func generateServer(protos []*descriptor.FileDescriptorProto, opt Options) error {
 	services := extractServices(protos)
 	deps := resolveDependencies(protos)
 
@@ -141,10 +132,6 @@ func generateServer(protos []*descriptor.FileDescriptorProto, opt *Options) erro
 		GrpcAddr:     opt.grpcAddr,
 		AdminPort:    opt.adminPort,
 		PbPath:       opt.pbPath,
-	}
-
-	if opt == nil {
-		opt = &Options{}
 	}
 
 	if opt.writer == nil {
@@ -178,7 +165,6 @@ func resolveDependencies(protos []*descriptor.FileDescriptorProto) map[string]st
 	deps := map[string]string{}
 	for _, proto := range protos {
 		alias, pkg := getGoPackage(proto)
-
 		// fatal if go_package is not present
 		if pkg == "" {
 			log.Fatalf("option go_package is required. but %s doesn't have any", proto.GetName())
@@ -263,7 +249,7 @@ func extractServices(protos []*descriptor.FileDescriptorProto) []Service {
 				}
 
 				methods[j] = methodTemplate{
-					Name:        strings.Title(*method.Name),
+					Name:        cases.Title(language.English, cases.NoLower).String(*method.Name),
 					SvcPackage:  s.Package,
 					ServiceName: svc.GetName(),
 					Input:       getMessageType(protos, method.GetInputType()),

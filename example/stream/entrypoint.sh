@@ -2,7 +2,7 @@
 
 # this file is used by .github/workflows/integration-test.yml
 
-gripmock --stub=example/stream/stub example/stream/stream.proto &
+gripmock --stubs-dir=example/stream/stub --proto-dirs=example/stream &
 
 # wait for generated files to be available and gripmock is up
 sleep 2

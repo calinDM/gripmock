@@ -24,7 +24,7 @@ basic syntax to run GripMock is
 
 - Install [Docker](https://docs.docker.com/install/)
 - Run `docker pull tkpd/gripmock` to pull the image
-- We are gonna mount `/mypath/hello.proto` (it must be a fullpath) into a container and also we expose ports needed. Run `docker run -p 4770:4770 -p 4771:4771 -v /mypath:/proto tkpd/gripmock /proto/hello.proto`
+- We are gonna mount `/mypath/hello.proto` (it must be a fullpath) into a container and also we expose ports needed. Run `docker run --name gripmockcd  -v /mypath:/proto -p 4770:4770 -d calindinis/gripmock:v1 --proto-dirs /proto`
 - On a separate terminal we are gonna add a stub into the stub service. Run `curl -X POST -d '{"service":"Gripmock","method":"SayHello","input":{"equals":{"name":"gripmock"}},"output":{"data":{"message":"Hello GripMock"}}}' localhost:4771/add `
 - Now we are ready to test it with our client. You can find a client example file under `example/simple/client/`. Execute one of your preferred language. Example for go: `go run example/simple/client/*.go`
 
@@ -103,7 +103,7 @@ For our `hello` service example we put a stub with the text below:
 You could initialize gripmock with stub json files and provide the path using `--stub` argument. For example you may
 mount your stub file in `/mystubs` folder then mount it to docker like
 
-`docker run -p 4770:4770 -p 4771:4771 -v /mypath:/proto -v /mystubs:/stub tkpd/gripmock --stub=/stub /proto/hello.proto`
+`docker run -p 4770:4770 -p 4771:4771 -v /mypath:/proto -v /mystubs:/stub tkpd/gripmock --stubs-dir=/stub 
 
 Please note that Gripmock still serves http stubbing to modify stored stubs on the fly.
 
